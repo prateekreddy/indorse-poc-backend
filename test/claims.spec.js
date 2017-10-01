@@ -13,7 +13,7 @@ chai.use(chaiHttp)
 
 
 describe('Claims', () => {
-  var token, claim_id, update_claim_id, updated_claim
+  var token, claim_id, update_claim_id, updated_claim, claims
   var user = {
     email: "person@example.com",
     password: "testpass123"
@@ -64,7 +64,8 @@ describe('Claims', () => {
       let claim = {
         title: 'This is claim',
         desc: 'A description',
-        proof: 'Proof of the claim',
+        proof: 'https://github.com/prateekreddy/test',
+        type: 'github',
       }
 
       chai.request(server)
@@ -84,7 +85,8 @@ describe('Claims', () => {
       let claim = {
         title: 'This is claim',
         desc: 'A description',
-        proof: 'Proof of the claim'
+        proof: 'https://github.com/prateekreddy/test',
+        type: 'github',
       }
 
       chai.request(server)
@@ -122,19 +124,25 @@ describe('Claims', () => {
       })
   })
 
+  before('set claim token to confirm claim', (done) => {
+    claims = DB.getDB().collection('claims');
+    done();
+  })
+
   describe('POST /confirmClaim', () => {
-    it('should return 200 if claim data is verified', (done) => {
+    it('should return 200 with verified claim data', (done) => {
+      claims.update({'_id': new ObjectID(claim_id)}, { $set: { token: 'CAlcGdYAMrOzNEc1' }}, {safe: true});
       chai.request(server)
-      .post('/confirmClaim')
-      .set('Authorization', 'Bearer ' + token)
-      .send({claim_id, email: user.email})
-      .end((err, res) => {
-        res.body.should.be.a('object')
-        res.should.have.status(200)
-        res.body.claim[0]._id.should.equal(claim_id)
-        done()
-      })
-    });
+        .post('/confirmClaim')
+        .set('Authorization', 'Bearer ' + token)
+        .send({claim_id, email: user.email})
+        .end((err, res) => {
+          res.body.should.be.a('object');
+          res.should.have.status(200);
+          res.body.claim[0]._id.should.equal(claim_id);
+          done();
+        });
+    })
 
     it('should return 404 if claim not found', (done) => {
       chai.request(server)
@@ -142,21 +150,25 @@ describe('Claims', () => {
         .set('Authorization', 'Bearer ' + token)
         .send({email: user.email, claim_id: '59d087097268c8498e413cea'})
         .end((err, res) => {
-          res.body.should.be.a('object')
-          res.should.have.status(404)
-          done()
+          res.body.should.be.a('object');
+          res.should.have.status(404);
+          done();
         })
     })
 
     it('should return 400 if claim cannot be verified', (done) => {
+      // change the token so that tokens dont match
+      claims.update({claim_id}, { $set: { token: 'CalcGdYAMrOzNEc1' }}, {safe: true}, (err, res) => {
+        done();
+      })
       chai.request(server)
         .post('/confirmClaim')
         .set('Authorization', 'Bearer ' + token)
         .send({email: user.email, claim_id})
         .end((err, res) => {
-          res.body.should.be.a('object')
-          res.should.have.status(400)
-          done()
+          res.body.should.be.a('object');
+          res.should.have.status(400);
+          done();
         })
     })
 
@@ -166,8 +178,9 @@ describe('Claims', () => {
         .set('Authorization', 'Bearer ' + token)
         .send({ email: user.email })
         .end((err, res) => {
-          res.should.have.status(422)
-          done()
+          console.log(`--------------- STATUS WHEN ARGUMENTS ARE MISSING IS ${res.status} ---------------`);
+          res.should.have.status(422);
+          done();
         })
     })
 
@@ -177,11 +190,11 @@ describe('Claims', () => {
       .set('Authorization', 'Bearer ' + token)
       .send({email: user.email, claim_id: update_claim_id})
         .end((err, res) => {
-          res.should.have.status(401)
-          res.body.should.be.a('object')
-          res.body.message.should.equal('Authentication failed')
-          res.body.success.should.equal(false)
-          done()
+          res.should.have.status(401);
+          res.body.should.be.a('object');
+          res.body.message.should.equal('Authentication failed');
+          res.body.success.should.equal(false);
+          done();
         })
     })
   });
