@@ -5,3 +5,4 @@ nohup.out
 config/
 .idea
 dist/
+package-lock.json

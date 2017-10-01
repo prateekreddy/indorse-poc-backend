@@ -1,4 +1,5 @@
 var mongo = require('mongodb');
+var https = require('https');
 var config = require('config');
 var auth = require('./auth.js');
 var Server = mongo.Server,
@@ -212,7 +213,87 @@ exports.claim = function(req, res) {
 }
 
 exports.confirmClaim = (req, res) => {
-    
+    if('login' in req.body && req.body.login) {
+        var info = req.body;
+        if ('claim_id' in info && info['claim_id'] != '' && 'email' in info && info['email'] != '') {
+            db.collection('users', (err, collection) => {
+                collection.findOne({
+                    'email': info['email']
+                },(err, item) => {
+                    if(item) {
+                        db.collection('claims', (err, claimsCollection) => {
+                            claimsCollection.findOne({
+                                '_id': new ObjectID(info['claim_id'])
+                            }, (err, currclaim) => {
+                                if(currclaim && currclaim.state != 'verified') {
+                                    var verification_token = currclaim['token']
+                                    var token_proof_url = currclaim['proof'].replace('github.com', 'raw.githubusercontent.com') + `/master/INDORSE_VERIFICATION?raw=true`
+                                    console.log('sending request to '+token_proof_url)
+                                    https.get(token_proof_url, (resp) => {
+                                        var rawData = '';
+                                        if(resp.statusCode == 200) {
+                                            resp.on('data', (part) => { rawData += part});
+                                            resp.on('end', () => {
+                                                const token_matches = rawData.match(/[a-zA-Z0-9]{16}/g);
+                                                if(token_matches.length == 1 && token_matches[0] == verification_token) {
+                                                    claimsCollection.update({'_id': new ObjectID(info['claim_id'])}, {$set: {
+                                                        state: 'verified'
+                                                    }}, (err, writeStatus) => {
+                                                        if(!err && writeStatus.result.ok == 1) {
+                                                            res.send(200, {
+                                                                success: true,
+                                                                message: 'Claim verified',
+                                                                claim: [currclaim]
+                                                            })
+                                                        }
+                                                    })
+                                                } else {
+                                                    res.send(400, {
+                                                        success: false,
+                                                        message: 'Tokens dont match, please verify'
+                                                    })
+                                                }
+                                            })
+                                        } else {
+                                            res.send({
+                                                success: false,
+                                                message: config.get('Msg39')
+                                            })
+                                        }
+                                    }).on('error', (e) => {
+                                        res.send(400, {
+                                            success: false,
+                                            message: 'Proof not accessible'
+                                        })
+                                    })
+                                } else {
+                                    res.send(404, {
+                                        success: false,
+                                        message: config.get('Msg39')
+                                    });
+                                }
+                            })
+                        })
+                    } else {
+                        res.send(404, {
+                            success: false,
+                            message: config.get('Msg41')
+                        });
+                    }
+                })
+            })
+        } else {
+            res.send(422, {
+                success: false,
+                message: config.get('Msg42')
+            });
+        }
+    } else {
+        res.send(401, {
+            success: false,
+            message: config.get('Msg28')
+        });
+    }
 }
 
 
