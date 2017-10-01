@@ -131,9 +131,15 @@ exports.claim = function(req, res) {
                             claim['title'] = info['title'];
                             claim['desc'] = info['desc']
                             claim['proof'] = info['proof']
+                            claim['type'] = info['type'];
                             claim['state'] = 'new';
                             claim['visible'] = true
                             claim['ownerid'] = item['_id'].toString();
+
+                            if(claim['type'] == 'github') {
+                                claim['token'] = randtoken.uid(16);
+                            }
+
                             db.collection('claims', function(err, collection1) {
                                 collection1.insert(claim, {
                                     safe: true
@@ -146,6 +152,19 @@ exports.claim = function(req, res) {
                                     } else {
                                         if ('result' in result && 'ok' in result['result'] && result['result']['ok'] == 1) {
                                             create_votinground(result['ops'][0]['_id'].toString(),claim['ownerid']);
+                                            name = item['name']
+                                            email = item['email']
+                                            var msg_text = `Dear ${name}, <br><br> You have claimed as owner to a github repository. Please add the token <b>${claim['token']}</b> to your github repository in a file named INDORSE_VERIFICATION in the root of your repository. The Indorse Community looks forward to your positive participation.<br><br> Thank you and regards <br> Team Indorse <br><br> Please let us know if you have any problems or questions at: <br> www.indorse.io`;
+                                            var sub_text = 'Claim to github repository';
+                                            var data = {
+                                                from: 'Indorse <info@app.indorse.io>',
+                                                to: email,
+                                                subject: sub_text,
+                                                html: msg_text
+                                            };
+                                            mailgun.messages().send(data, function (error, response) {
+                                                console.log(error, response);
+                                            });
                                             res.send(200, {
                                                 success: true,
                                                 claim: result['ops'],
@@ -194,7 +213,8 @@ exports.claim = function(req, res) {
 
 exports.confirmClaim = (req, res) => {
     
-};
+}
+
 
 exports.updateClaims = function(req, res) {
 
@@ -230,7 +250,7 @@ exports.updateClaims = function(req, res) {
                                         }
                                         collection1.update({
                                             '_id': new ObjectID(info['claim_id'])
-                                        }, currclaim, {
+                                        }, {$set: currclaim}, {
                                             safe: true
                                         }, function(err, result) {
 
