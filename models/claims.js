@@ -192,6 +192,10 @@ exports.claim = function(req, res) {
     }
 }
 
+exports.confirmClaim = (req, res) => {
+    
+};
+
 exports.updateClaims = function(req, res) {
 
     if ('login' in req.body && req.body.login) {
