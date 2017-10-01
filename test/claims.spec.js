@@ -122,6 +122,70 @@ describe('Claims', () => {
       })
   })
 
+  describe('POST /confirmClaim', () => {
+    it('should return 200 if claim data is verified', (done) => {
+      chai.request(server)
+      .post('/confirmClaim')
+      .set('Authorization', 'Bearer ' + token)
+      .send({claim_id, email: user.email})
+      .end((err, res) => {
+        res.body.should.be.a('object')
+        res.should.have.status(200)
+        res.body.claim[0]._id.should.equal(claim_id)
+        done()
+      })
+    });
+
+    it('should return 404 if claim not found', (done) => {
+      chai.request(server)
+        .post('/confirmClaim')
+        .set('Authorization', 'Bearer ' + token)
+        .send({email: user.email, claim_id: '59d087097268c8498e413cea'})
+        .end((err, res) => {
+          res.body.should.be.a('object')
+          res.should.have.status(404)
+          done()
+        })
+    })
+
+    it('should return 400 if claim cannot be verified', (done) => {
+      chai.request(server)
+        .post('/confirmClaim')
+        .set('Authorization', 'Bearer ' + token)
+        .send({email: user.email, claim_id})
+        .end((err, res) => {
+          res.body.should.be.a('object')
+          res.should.have.status(400)
+          done()
+        })
+    })
+
+    it('should return 422 if arguments are missing', (done) => {
+      chai.request(server)
+        .post('/confirmClaim')
+        .set('Authorization', 'Bearer ' + token)
+        .send({ email: user.email })
+        .end((err, res) => {
+          res.should.have.status(422)
+          done()
+        })
+    })
+
+    it('should return 401 if not logged in', (done) => {
+      chai.request(server)
+      .post('/confirmClaim')
+      .set('Authorization', 'Bearer ' + token)
+      .send({email: user.email, claim_id: update_claim_id})
+        .end((err, res) => {
+          res.should.have.status(401)
+          res.body.should.be.a('object')
+          res.body.message.should.equal('Authentication failed')
+          res.body.success.should.equal(false)
+          done()
+        })
+    })
+  });
+
   before('updating claim, create a new one', (done) => {
     let claim = {
       title: 'This is claim',
